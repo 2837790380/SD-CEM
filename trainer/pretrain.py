@@ -18,12 +18,11 @@ class Trainer:
         2. Task #2: Category transition Prediction
     """
 
-    def __init__(self, bert: Model, vocab_size: int,
+    def __init__(self, model: Model, vocab_size: int,
                  train_dataloader: DataLoader, test_dataloader: DataLoader = None,
                  lr: float = 1e-4, betas=(0.9, 0.999), weight_decay: float = 0.01, warmup_steps=10000,
                  max_epoch=40, with_cuda: bool = True, cuda_device=5, log_freq: int = 10):
         """
-        :param bert: BERT model which you want to train
         :param vocab_size: total word vocab size
         :param train_dataloader: train dataset data loader
         :param test_dataloader: test dataset data loader [can be None]
@@ -38,10 +37,10 @@ class Trainer:
         cuda_condition = torch.cuda.is_available() and with_cuda
         self.device = torch.device(f'cuda:{cuda_device}' if cuda_condition else "cpu")
 
-        # This BERT model will be saved every epoch
-        self.bert = bert
-        # Initialize the BERT Language Model, with BERT model
-        self.model = SDCEM(self.bert, vocab_size).to(self.device)
+        # This model will be saved every epoch
+        self.model = model
+
+        self.sdcem = SDCEM(self.model, vocab_size).to(self.device)
 
         # Distributed GPU training if CUDA can detect more than 1 GPU
         # if with_cuda and torch.cuda.device_count() > 1:
@@ -53,8 +52,8 @@ class Trainer:
         self.test_data = test_dataloader
 
         # Setting the Adam optimizer with hyper-param
-        self.optim = Adam(self.model.parameters(), lr=lr, betas=betas, weight_decay=weight_decay)
-        self.optim_schedule = ScheduledOptim(self.optim, self.bert.hidden, n_warmup_steps=warmup_steps)
+        self.optim = Adam(self.sdcem.parameters(), lr=lr, betas=betas, weight_decay=weight_decay)
+        self.optim_schedule = ScheduledOptim(self.optim, self.model.hidden, n_warmup_steps=warmup_steps)
 
         self.criterion = nn.NLLLoss(ignore_index=0)
         self.criterion2 = nn.NLLLoss(ignore_index=0, reduction='sum')
@@ -62,7 +61,7 @@ class Trainer:
         self.log_freq = log_freq
         self.preTrain_epochs = int(0.5 * max_epoch)
 
-        print("Total Parameters:", sum([p.nelement() for p in self.model.parameters()]))
+        print("Total Parameters:", sum([p.nelement() for p in self.sdcem.parameters()]))
 
     def train(self, epoch, alpha):
         self.iteration(epoch, self.train_data, alpha)
@@ -96,7 +95,7 @@ class Trainer:
         for i, data in data_iter:
             data = {key: value.to(self.device) for key, value in data.items()}
 
-            mask_lm_output, next_tm_output = self.model.forward(data["input"], data['source_input'], data['next_input'],
+            mask_lm_output, next_tm_output = self.sdcem.forward(data["input"], data['source_input'], data['next_input'],
                                                                 data['length'])
 
             next_loss = self.criterion2(next_tm_output.transpose(1, 2), data['next_input'])
@@ -127,14 +126,12 @@ class Trainer:
 
     def save(self, epoch, file_path="output/trained.model"):
         """
-        Saving the current BERT model on file_path
-
         :param epoch: current epoch number
         :param file_path: model output path which gonna be file_path+"ep%d" % epoch
         :return: final_output_path
         """
         output_path = file_path + ".ep%d" % epoch
-        torch.save(self.bert.cpu(), output_path)
-        self.bert.to(self.device)
+        torch.save(self.model.cpu(), output_path)
+        self.model.to(self.device)
         print("EP:%d Model Saved on:" % epoch, output_path)
         return output_path
