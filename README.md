@@ -10,7 +10,7 @@ These are the source codes for the **SD-CEM** model and its corresponding data.
   1. main.py — A python file to run the SD-CEM model. Noted that there are some hyperparameter that   can be set in this file.
   2. trainer — The files in this folder contain the details of model training and optimization.
   3. model — These are the codes for **SD-CEM**, including the implementation details of all components of the model.
-- embeddings — These are the trained category embeddings. The named format is [SD-CEM#dataset#embedding size], and the data format is [category name, category embedding]
+- embeddings — These are the trained category embeddings. The named format is [SD-CEM#dataset#embedding size.csv], and the data format is [category name, category embedding]
 
 - tasks
   1. tasks\matchrate.py — This file aims to calculate the match rate based on the category embeddings.
